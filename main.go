@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -28,13 +29,23 @@ func main() {
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		e.Router.GET("/functions/images/:server", func(c echo.Context) error {
-			//server := c.PathParam("server")
+			server := c.PathParam("server")
 
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			fmt.Println("password")
+			fmt.Println(record.GetString("pass"))
+			fmt.Println("kaladin")
 			// Configuración de la conexión SSH
 			sshConfig := &ssh.ClientConfig{
-				User: "arnau",
+				User: record.GetString("username"),
+				//User: "arnau",
 				Auth: []ssh.AuthMethod{
-					ssh.Password("kaladin"),
+					ssh.Password(record.GetString("pass")),
+					//ssh.Password("kaladin"),
 					// También puedes utilizar otros métodos de autenticación, como claves SSH, dependiendo de tu configuración
 				},
 				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -42,29 +53,33 @@ func main() {
 			}
 
 			// Dirección del servidor SSH (host:port)
-			serverAddress := "localhost:22"
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
 
 			// Comando a ejecutar en el servidor remoto
 			command := "docker images"
+			//docker images --format '{"Repository": "{{.Repository}}", "Tag": "{{.Tag}}", "ID": "{{.ID}}", "Created": "{{.CREATED}}"}'
 
 			// Realizar la conexión SSH
 			client, err := ssh.Dial("tcp", serverAddress, sshConfig)
 			if err != nil {
-				log.Fatalf("Error al conectar al servidor SSH: %v", err)
+				fmt.Printf("Error al conectar al servidor SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, string("[]"))
 			}
 			defer client.Close()
 
 			// Crear una nueva sesión SSH
 			session, err := client.NewSession()
 			if err != nil {
-				log.Fatalf("Error al crear la sesión SSH: %v", err)
+				fmt.Printf("Error al crear la sesión SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, string("[]"))
 			}
 			defer session.Close()
 
 			// Ejecutar el comando en la sesión SSH
 			output, err := session.CombinedOutput(command)
 			if err != nil {
-				log.Fatalf("Error al ejecutar el comando en el servidor remoto: %v", err)
+				fmt.Printf("Error al ejecutar el comando en el servidor remoto: %v\n", err)
+				return c.JSON(http.StatusForbidden, string("[]"))
 			}
 
 			// Imprimir la salida del comando
@@ -101,7 +116,8 @@ func main() {
 			// Convertir el arreglo a JSON
 			jsonData, err := json.Marshal(images)
 			if err != nil {
-				log.Fatalf("Error al convertir a JSON: %v", err)
+				fmt.Printf("Error al convertir a JSON: %v", err)
+				return c.JSON(http.StatusForbidden, string("[]"))
 			}
 
 			return c.JSON(http.StatusOK, string(jsonData))
