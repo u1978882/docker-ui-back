@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
@@ -15,14 +13,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"golang.org/x/crypto/ssh"
 )
-
-type ImageInfo struct {
-	Repository string `json:"repository"`
-	Tag        string `json:"tag"`
-	ImageID    string `json:"image_id"`
-	Created    string `json:"created"`
-	Size       string `json:"size"`
-}
 
 func main() {
 	app := pocketbase.New()
@@ -36,9 +26,6 @@ func main() {
 				return c.JSON(http.StatusForbidden, string("[]"))
 			}
 
-			fmt.Println("password")
-			fmt.Println(record.GetString("pass"))
-			fmt.Println("kaladin")
 			// Configuración de la conexión SSH
 			sshConfig := &ssh.ClientConfig{
 				User: record.GetString("username"),
@@ -56,7 +43,7 @@ func main() {
 			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
 
 			// Comando a ejecutar en el servidor remoto
-			command := "docker images"
+			command := "docker images --format='{{json .}},'"
 			//docker images --format '{"Repository": "{{.Repository}}", "Tag": "{{.Tag}}", "ID": "{{.ID}}", "Created": "{{.CREATED}}"}'
 
 			// Realizar la conexión SSH
@@ -86,41 +73,15 @@ func main() {
 			fmt.Println("Output del comando:")
 			fmt.Println(string(output))
 
-			lineArray := strings.Split(strings.TrimSpace(string(output)), "\n")
-
-			if len(lineArray) > 0 {
-				lineArray = lineArray[1:]
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
 			}
 
-			// Arreglo para almacenar los objetos ImageInfo
-			var images []ImageInfo
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
 
-			// Procesar cada línea y convertirla a un objeto ImageInfo
-			for _, line := range lineArray {
-				// Separar la línea en campos
-				fields := strings.Fields(line)
-
-				// Crear un objeto ImageInfo
-				imageInfo := ImageInfo{
-					Repository: fields[0],
-					Tag:        fields[1],
-					ImageID:    fields[2],
-					Created:    fields[3],
-					Size:       fields[4],
-				}
-
-				// Agregar el objeto al arreglo
-				images = append(images, imageInfo)
-			}
-
-			// Convertir el arreglo a JSON
-			jsonData, err := json.Marshal(images)
-			if err != nil {
-				fmt.Printf("Error al convertir a JSON: %v", err)
-				return c.JSON(http.StatusForbidden, string("[]"))
-			}
-
-			return c.JSON(http.StatusOK, string(jsonData))
+			return c.JSON(http.StatusOK, string("{\"images\": ["+sortidaFinal+"]}"))
 		} /* optional middlewares */)
 
 		return nil
