@@ -184,6 +184,74 @@ func main() {
 		return nil
 	})
 
+	// docker exec -t f42bf0fe4043 ls /bin
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/container/:container/list/:directori", func(c echo.Context) error {
+			server := c.PathParam("server")
+			container := c.PathParam("container")
+			directori := c.PathParam("directori")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker exec -t " + container + " ls -la -p -d " + directori + "/*"
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, "[]")
+			}
+
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			}
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string(sortidaFinal))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/container/:container/list", func(c echo.Context) error {
+			server := c.PathParam("server")
+			container := c.PathParam("container")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker exec -t " + container + " find . -print -ls"
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, "[]")
+			}
+
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			}
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string(sortidaFinal))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		e.Router.GET("/functions/:server/image/:image/pull", func(c echo.Context) error {
 			server := c.PathParam("server")
