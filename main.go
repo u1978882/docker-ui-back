@@ -249,7 +249,9 @@ func main() {
 			}
 
 			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
-			command := "docker run -d " + commandRun
+			command := "docker run -d -it " + commandRun
+
+			fmt.Printf("Comanda: %v\n", command)
 
 			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
 			if err != nil {
