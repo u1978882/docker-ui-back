@@ -95,6 +95,107 @@ func main() {
 	})
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/container/:containerId/logs/:date", func(c echo.Context) error {
+			server := c.PathParam("server")
+			container := c.PathParam("containerId")
+			date := c.PathParam("date")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker logs --since " + date + " " + container
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, "[]")
+			}
+
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			}
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string(sortidaFinal))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/container/:containerId/file/:file", func(c echo.Context) error {
+			server := c.PathParam("server")
+			container := c.PathParam("containerId")
+			file := c.PathParam("file")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker exec -t " + container + " " + " cat " + file
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, "[]")
+			}
+
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			}
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string(sortidaFinal))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/container/:containerId/inspect", func(c echo.Context) error {
+			server := c.PathParam("server")
+			container := c.PathParam("containerId")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker inspect " + container
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				return c.JSON(http.StatusForbidden, "[]")
+			}
+
+			var sortidaFinal = string(output)
+			// if len(sortidaFinal) > 0 {
+			// 	sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			// }
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string(sortidaFinal))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		e.Router.GET("/functions/:server/dockercompose/:composeid/up", func(c echo.Context) error {
 			server := c.PathParam("server")
 			composeId := c.PathParam("composeid")
@@ -111,7 +212,11 @@ func main() {
 
 			fmt.Printf("Test %v", compose.GetString("content"))
 			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
-			command := "mkdir docktopusrun > /dev/null 2> /dev/null; cd docktopusrun > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; docker compose up -d"
+			command := "mkdir " + record.GetString("name") + " > /dev/null 2> /dev/null; cd " + record.GetString("name") + " > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; docker compose up -d"
+
+			if record.GetString("dockerfile") != "" {
+				command = "mkdir " + record.GetString("name") + " > /dev/null 2> /dev/null; cd " + record.GetString("name") + " > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; echo '" + compose.GetString("dockerfile") + "' > dockerfile 2> /dev/null; docker compose up -d"
+			}
 
 			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
 			if err != nil {
@@ -156,7 +261,7 @@ func main() {
 
 			fmt.Printf("Test %v", compose.GetString("content"))
 			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
-			command := "mkdir docktopusrun > /dev/null 2> /dev/null; cd docktopusrun > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; docker compose down"
+			command := "mkdir " + record.GetString("name") + " > /dev/null 2> /dev/null; cd " + record.GetString("name") + " > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; docker compose down"
 
 			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
 			if err != nil {
@@ -230,12 +335,16 @@ func main() {
 			}
 
 			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
-			command := "docker exec -t " + container + " find . -print -ls"
+			command := "docker exec -t " + container + " find . -maxdepth 4 -print"
 
 			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
 			if err != nil {
+				var sortidaFinal = string(output)
+				if len(sortidaFinal) > 0 {
+					sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+				}
 				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
-				return c.JSON(http.StatusForbidden, "[]")
+				return c.JSON(http.StatusForbidden, sortidaFinal)
 			}
 
 			var sortidaFinal = string(output)
