@@ -115,9 +115,6 @@ func main() {
 			}
 
 			var sortidaFinal = string(output)
-			if len(sortidaFinal) > 0 {
-				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
-			}
 
 			fmt.Println("Sortida final:")
 			fmt.Println(sortidaFinal)
@@ -149,9 +146,6 @@ func main() {
 			}
 
 			var sortidaFinal = string(output)
-			if len(sortidaFinal) > 0 {
-				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
-			}
 
 			fmt.Println("Sortida final:")
 			fmt.Println(sortidaFinal)
@@ -217,6 +211,45 @@ func main() {
 			if record.GetString("dockerfile") != "" {
 				command = "mkdir " + record.GetString("name") + " > /dev/null 2> /dev/null; cd " + record.GetString("name") + " > /dev/null 2> /dev/null; echo '" + compose.GetString("content") + "' > docker-compose.yml 2> /dev/null; echo '" + compose.GetString("dockerfile") + "' > dockerfile 2> /dev/null; docker compose up -d"
 			}
+
+			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
+			if err != nil {
+				fmt.Printf("Error al ejecutar el comando SSH: %v\n", err)
+				var sortidaFinal = string(err.Error())
+				if len(sortidaFinal) > 0 {
+					sortidaFinal = sortidaFinal[:len(sortidaFinal)-1]
+				}
+				sortidaFinal = strings.ReplaceAll(sortidaFinal, `"`, `\"`)
+				sortidaFinal = strings.ReplaceAll(sortidaFinal, "\n", " ")
+				return c.JSON(http.StatusOK, string("{\"stat\": \"err\", \"resultat\": \""+sortidaFinal+"\"}"))
+			}
+
+			var sortidaFinal = string(output)
+			if len(sortidaFinal) > 0 {
+				sortidaFinal = sortidaFinal[:len(sortidaFinal)-2]
+			}
+
+			fmt.Println("Sortida final:")
+			fmt.Println(sortidaFinal)
+
+			return c.JSON(http.StatusOK, string("{\"stat\": \"ok\", \"resultat\": \""+sortidaFinal+"\"}"))
+		} /* optional middlewares */)
+
+		return nil
+	})
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/functions/:server/run/:command", func(c echo.Context) error {
+			server := c.PathParam("server")
+			commandRun := c.PathParam("command")
+
+			record, err := app.Dao().FindRecordById("server", server)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, string("[]"))
+			}
+
+			serverAddress := fmt.Sprintf("%s:%s", record.GetString("ip"), strconv.Itoa(record.GetInt("port")))
+			command := "docker run -d " + commandRun
 
 			output, err := executarComanda(serverAddress, record.GetString("username"), record.GetString("pass"), command)
 			if err != nil {
